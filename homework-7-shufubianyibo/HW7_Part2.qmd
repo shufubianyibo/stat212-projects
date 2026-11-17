@@ -1,0 +1,276 @@
+---
+title: "Navigating the Census API"
+subtitle: "HW7 Part 2"
+author: "YOUR NAME"
+format: 
+  html:
+    self-contained: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a High Pass for this challenge.
+
+**Requirements for high passing:**
+
+Ex 1
+
+- Wrote a function that provided the right output (data frame)
+- Wrote a function that gave appropriate stop message for year
+- Wrote a function that could handle all potential variables (including NAME)
+
+Ex 2
+
+- Created test cases that covered years inside and outside the accepted range
+- Created test cases that checked for variables that included NAME
+- Created test cases that checked with and without MOE.
+
+Ex 3
+
+- Correctly iterated over years with a for loop (with a storage container)
+- Correctly iterated over years with `map()`
+
+Ex 4
+
+- Created appropriate visualizations that showed the relationships between year and the two variables
+- Incorporated uncertainty (MOE) into the Income visual
+- Included axis labels and a title for the visualization to provide necessary data context.
+
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.)  Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+
+# Exercises
+
+**Goal:** Use the [Census API user guide](https://www.census.gov/data/developers/guidance/api-user-guide.html) to obtain data from the American Community Survey (ACS) and practice writing functions that interact with APIs.
+
+1. Write a function called `get_acs1()` that gets 1-year ACS data for a given year for a set of user specified variables for all states. Function arguments should include:
+    - `year`: Within your function check that this is between 2005 and 2022 and not 2020 (data only available from 2005-2022 except for 2020). If the year is outside this range, include `stop("Helpful error message here")` to display a helpful error message to the user.
+    - `variables`: A character vector of variable names to obtain. e.g., `c("B02015_009", "B01003_001")`. Note that these don't have "E" or "M" at the end. You'll always return the "E" version (for the estimate). See next argument for the "M" version. Make sure your function can also handle variables like `NAME`.
+    - `include_moe`: TRUE/FALSE indicator of whether to additionally include the "M" version (for the margin of error on the estimate). Set the default to TRUE.
+    - `key`: Census API key (if you have trouble getting a key, email the instructor as soon as possible)
+    Your function should include a `Sys.sleep(0.5)` at the beginning to pause code execution for 0.5 seconds. While the Census API does not seem to have a [rate limit](https://www.census.gov/data/developers/guidance/api-user-guide.Help_&_Contact_Us.html) when you provide an API key, include this pause just to be safe.
+    
+```{r}
+library(httr2)
+library(tibble)
+library(dplyr)
+library(stringr)
+census_api_key <- "3f5a1a31268c926966a79501a486ac42455dd480"
+get_acs1 <- function(year, variables, include_moe = TRUE, key) {
+  Sys.sleep(0.5)
+  if (year==2020 || year > 2022 || year < 2005) {
+    stop("Input 'year' must be a single numeric value between 2005 and 2022 (excluding 2020)")
+  }
+  if (length(variables) == 0) {
+    stop("Input 'variables' is empty")
+  }
+  vars <- character(0)
+  for (var in variables) {
+    if (startsWith(var, "Estimate!!") || startsWith(var, "Margin of Error!!")){
+      temp_url <- paste0("https://api.census.gov/data/", year, "/acs/acs1/variables.json")
+      tryCatch({
+      temp_req <- request(temp_url)
+      temp_resp <- req_perform(temp_req)
+      temp_data <- resp_body_json(temp_resp, simplifyVector = TRUE)$variables
+      lookup <- setNames(names(temp_data), sapply(temp_data, `[[`, "label"))
+      })
+      var <- lookup[var]
+      var <- str_sub(var, end = -2)
+    } else if (endsWith(var,"E") || endsWith(var, "M")){
+      var <- str_sub(var, end = -2)
+    }
+    vars <- append(vars, as.character(paste0(var, "E")))
+    if (include_moe == TRUE) {
+      vars <- append(vars, as.character(paste0(var, "M")))
+    }    
+  }
+  processed_vars <- paste(unlist(vars), collapse = ",")
+  base_url <- "https://api.census.gov"
+  req <- request(base_url) %>%
+        req_url_path_append("data") %>%
+        req_url_path_append(year) %>%
+        req_url_path_append("acs") %>% 
+        req_url_path_append("acs1") %>% 
+        req_url_query(
+            get = processed_vars,
+            `for` = I("state:*"), 
+            key = key
+        )
+  resp <- try(req_perform(req), silent = TRUE)
+  if (inherits(resp, "try-error")) {
+        stop("Failed to perform HTTP request")
+  }
+  response_data <- try(
+        resp_body_json(resp, simplifyVector = TRUE, check_type = FALSE),
+        silent = TRUE
+    )
+  header <- response_data[1, ]
+  
+  acs_data <- as_tibble(response_data[-1, , drop = FALSE], .name_repair = "minimal")
+  names(acs_data) <- header
+  acs_data <- acs_data %>%mutate(year = year, .before = 1)
+  return(acs_data)
+}
+
+```
+    
+
+
+2. Come up with a set of test cases that will **fully** test your function. Update your function as needed as you run your tests. Show output from successful tests on all test cases- make sure they are printed and visible in the HTML.
+
+```{r}
+get_acs1(2022,c("B02015_009", "B01003_001"), key = census_api_key)
+get_acs1(2022,c("B02015_009", "B01003_001", "Estimate!!Median age --!!Female"), key = census_api_key)
+get_acs1(2022, c("B02015_009M", "B01003_001E", "Estimate!!Median age --!!Female"), include_moe = FALSE, key = census_api_key)
+get_acs1(2022, c("B02015_009M", "B01003_001E", "Estimate!!Median age --!!Female"), key = census_api_key)
+```
+```{r deliberate-error, error=TRUE}
+get_acs1(2020, c("B02015_009M", "B01003_001E", "Estimate!!Median age --!!Female"), include_moe = FALSE, key = census_api_key)
+get_acs1(2025, c("B02015_009M", "B01003_001E", "Estimate!!Median age --!!Female"), include_moe = FALSE, key = census_api_key)
+get_acs1(2004, c("B02015_009M", "B01003_001E", "Estimate!!Median age --!!Female"), include_moe = FALSE, key = census_api_key)
+```
+
+
+3. Obtain 1-year ACS data for all states from 2005-2022 (except 2020) for the following two variables: `B01003_001` (total population) and `B06011_001` (Median Income in the Past 12 Months in 2022 Inflation-Adjusted Dollars).
+    - Get both the estimate and the margin of error for these two variables.
+    - Put all of this information into a single data frame.
+    - Do this with both a `for` loop and with an appropriate `purrr` function. (See our iteration day 2 activity for reference.)
+    - Verify using the `identical()` function that you get identical data frames from both approaches.
+
+For loop:
+```{r}
+library(purrr)
+years <- setdiff(c(2005:2022), 2020)
+all_data_list <- list()
+for (yr in years) {
+  data_of_year <- get_acs1(
+      year = yr,
+      variables = c("B01003_001", "B06011_001"),
+      key = census_api_key
+    )
+    all_data_list[[as.character(yr)]] <- data_of_year
+}
+acs_data_loop <- bind_rows(all_data_list, .id = "year") %>%
+  mutate(year = as.integer(year))%>% 
+  arrange(year, state)
+acs_data_loop
+```
+
+purrr:
+```{r}
+all_data_list_purrr <- map(years, function(yr) {
+    data_of_year <- get_acs1(
+      year = yr,
+      variables = c("B01003_001", "B06011_001"),
+      key = census_api_key)
+    return(data_of_year)})
+acs_data_purrr <- bind_rows(all_data_list_purrr, .id = "year_index")%>%
+mutate(
+    year = years[as.integer(year_index)], 
+    year = as.integer(year) 
+  ) %>%
+  select(-year_index)%>% 
+  arrange(year, state)
+acs_data_purrr
+```
+
+check:
+```{r}
+identical(acs_data_loop,acs_data_purrr)
+```
+
+
+4. Create two separate visualizations that show how the two variables have changed over 2005-2022 (except 2020).
+    - Show both the estimate and margin of error (if relevant) in an effective way.
+    - Make sure that your plots have clean labels and a title.
+    
+```{r}
+library(ggplot2)
+library(tidyr)
+population_data <- acs_data_loop %>%
+  select(-"B06011_001E",-"B06011_001M")%>%
+  rename("estimate_population" = "B01003_001E")%>%
+  rename("moe_population" = "B01003_001M")%>%
+  mutate(year=as.character(year),
+         estimate_population=as.numeric(estimate_population),
+         moe_population=as.numeric(moe_population))
+population_data
+
+income_data <- acs_data_loop %>%
+  select(-"B01003_001E",-"B01003_001M")%>%
+  rename("estimate_income" = "B06011_001E")%>%
+  rename("moe_income" = "B06011_001M")%>%
+  mutate(year=as.character(year),
+         estimate_income=as.numeric(estimate_income),
+         moe_income=as.numeric(moe_income))
+income_data
+```
+    
+```{r}
+library(scales)
+ggplot(population_data, aes(x = year, y = estimate_population)) +
+  geom_col(fill = "skyblue", color = "darkblue") +
+  geom_errorbar(
+    aes(ymin = estimate_population - moe_population, ymax = estimate_population + moe_population),
+    width = 0.3,
+    color = "darkred",
+    linewidth = 0.8
+   ) +
+  scale_y_continuous(
+      labels = scales::comma,
+      limits = c(0, NA) 
+      ) +
+  labs(
+    title = "Population Trend with Margin of Error", 
+    subtitle = "Years 2005-2022 (excluding 2020)",
+    x = "Year",
+    y = "Estimated Population",
+    caption = "Data source: US Census Bureau ACS 1-Year Estimates\nError bars represent the Margin of Error (MOE)"
+  ) +
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0))
+```
+    
+```{r}
+library(scales)
+ggplot(income_data, aes(x = year, y = estimate_income)) +
+  geom_col(fill = "skyblue", color = "darkblue") +
+  geom_errorbar(
+    aes(ymin = estimate_income - moe_income, ymax = estimate_income + moe_income),
+    width = 0.3,
+    color = "darkred",
+    linewidth = 0.8
+   ) +
+  scale_y_continuous(
+      labels = scales::comma,
+      limits = c(0, NA) 
+      ) +
+  labs(
+    title = "Income Trend with Margin of Error", 
+    subtitle = "Years 2005-2022 (excluding 2020)",
+    x = "Year",
+    y = "Estimated Income",
+    caption = "Data source: US Census Bureau ACS 1-Year Estimates\nError bars represent the Margin of Error (MOE)"
+  ) +
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0))
+```
+   
+    
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. course website
+2. Census API user guide
+3. ggplot's documentation
+
+**Reflection:**
+
+The examples in course website about urls are very helpful. Census API user guide is kind of necessary to learn the structures of the data, like the format of the NAME. I used ggplot's website to find proper plot for the moe.
+
+
+ 

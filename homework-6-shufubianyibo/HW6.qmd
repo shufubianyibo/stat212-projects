@@ -1,0 +1,213 @@
+---
+title: "Functions + Iteration"
+subtitle: "HW6"
+author: "YOUR NAME"
+format: 
+  html:
+    self-contained: true
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+```
+
+# Instructions
+
+**Requirements for high passing:**
+
+- Ex 1: Correct description for at least 3 of the \#1-\#4
+- Ex 2: Correct description for at least 2 of the \#1-\#3
+- Ex 3: Correctly modifies the code to work for all test cases provided
+- Ex 4: Describes why the original code works
+- Ex 4: Makes the function call clearer and more readable
+- Ex 5: Correctly identifies the data type.
+- Ex 5: Correctly describes all 3 c's roles in the code. 
+- Ex 6: Correctly describe in comments the desired subsetting for at least 3.
+- Ex 6: Correctly fixes the base R code to do the desired subsetting for at least 3.
+- Ex 7: Correctly describe in words what the code is attempting to do and what it is doing (at a low level) for a numeric vector.
+- Ex 7: Good guesses as to how it works with a tibble.
+- Ex 8: Correctly extract elements from a fit model and the summary of a fit model. 
+
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.)  Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+
+# Exercises
+
+1. For each line marked with #1-#4, describe in a sentence what the code is doing. 
+
+- \#1. This line groups df by the variables specified in the group_vars argument, which prepares the data for calculations that will be performed separately for each group.
+- \#2. This line calculates the number of NAs for each listed variables in "summary_vars" within each group defined in the previous step, and removes the group structure after the process.
+- \#3. This line select the grouping variables and those summary_vars columns where at least one of the groups has a missing value count greater than zero in the summarized data.
+- \#4. This line calls the show_missing function for the flights dataset grouping by the year, month, and day columns.
+
+```{r}
+show_missing <- function(df, group_vars, summary_vars = everything()) {
+
+    df %>%
+    group_by(pick({{ group_vars }})) %>% #1
+    summarize(
+      across({{ summary_vars }}, ~ sum(is.na(.x))),
+      .groups = "drop"
+    ) %>% #2
+    select(where(~ any(.x > 0))) #3
+}
+
+nycflights13::flights %>% show_missing(c(year, month, day)) #4
+```
+
+
+2. For each line marked with #1-#3, describe in a sentence what the code is doing. 
+
+- \#1. This line sets an empty list named "out" with a length equal to the number of elements in the means vector. 
+- \#2. This line sets a for loop that will iterate the length of the means vector times, where i representing the index of the current element.
+- \#3. This line generates 10 random numbers from a normal distribution with a mean specified by the i-th element of the means vector and assigns this vector of random numbers to the i-th element of the out list.
+
+```{r}
+means <- c(1, 50, 20, 100, 120)
+
+out <- vector("list", length(means)) #1
+for (i in 1:length(means)) { #2
+  out[[i]] <- rnorm(10, means[[i]]) #3
+}
+```
+
+
+3. Modify the iteration code below to work without any errors for all test cases listed at the top. 
+
+```{r}
+means <- c(1, 50, 20, 100, 120)
+out <- vector("list", length(means)) 
+for (i in seq_along(means)) { 
+  out[[i]] <- rnorm(10, means[[i]]) 
+}
+out
+```
+
+```{r}
+means <- c(1, 50, 20)
+out <- vector("list", length(means)) 
+for (i in seq_along(means)) { 
+  out[[i]] <- rnorm(10, means[[i]]) 
+}
+out
+```
+
+```{r}
+means <- c()
+
+out <- vector("list", length(means)) 
+for (i in seq_along(means)) { 
+  out[[i]] <- rnorm(10, means[[i]]) 
+}
+out
+```
+
+
+4. Write 1 sentence that describes why the original code below works. Modify the code below to make this function call easier to read. 
+
+
+> Why it works: Because it includes the elements necessary for mean function, which is the x value; and the blank value is trim=0 and TRUE is na.rm=TRUE, which are also valid inputs for function mean.
+
+```{r}
+#orig
+mean(, TRUE, x = c(1:10, NA))
+#modified
+mean(x = c(1:10, NA), trim = 0, na.rm = TRUE)
+
+```
+
+5. What does the following code return? Use language that describes the data type / class. 
+
+> It returns a named numeric vector that has length 1, where c is the given name.
+
+```{r}
+c <- 10
+c(c = c)
+```
+
+Why? Describe how each of the three `c`'s is interpreted. What is their role?
+
+> The c in c<-10 is a variable named c, and its value is given as 10, it created and assigned the variable with value. The c in c() is only a function combine its arguments into a vector. The first c in c=c is the name assigned to the argument by the function. The second c in c=c refers to the variable c, and gives its value 10 to the named argument.
+
+
+
+6. Add a comment describing what the following code was trying to do (the desired subsetting) and then fix each of the following common data frame subsetting errors:
+
+```{r}
+# It wants to get a subset where all values in cyl column are 4.
+mtcars[mtcars$cyl == 4, ]
+
+# It wants to get a subset to exclude rows 1 through 4.
+mtcars[-1:-4, ]
+
+# It wants to get a subset where all values in cyl column are smaller or equals to 5.
+mtcars[mtcars$cyl <= 5, ]
+
+# It wants to get a subset where all values in cyl column equals to 4 or 6.
+mtcars[mtcars$cyl %in% c(4,6), ]
+```
+
+7. In words, what does `df[is.na(df)] <- 0` attempt to do? 
+
+> It attempts to replace the NA values df into 0.
+
+How does it work if `df` is a numeric vector? Break the code down.
+
+> The 'is.na(df)' returns a logical vector of the same length as df, and each element in this logical vector is TRUE if the corresponding element in df is NA, is FALSE otherwise. 'df[]' makes a subset using the logical vector created by 'is.na(df)' that selects the elements in df which corresponding elements are TRUE. '<-0' assigned the selected elements with new values 0.
+
+```{r}
+df <- c(1:10,NA,11:20, NA)
+df
+df[is.na(df)] <- 0
+df
+```
+
+Why does it work if `df` is a tibble with quantitative variables such as `mtcars`? 
+
+> The 'is.na(df)' returns a logical matrix of the same dimension as df, and each cell in this logical matrix is TRUE if the corresponding element in df is NA, is FALSE otherwise. 'df[]' makes a subset using the logical matrix created by 'is.na(df)' that first selects the columns in df as vector that include elements which corresponding elements are TRU, and then select these elements. '<-0' assigned the selected elements with new values 0.
+
+
+```{r}
+df <- mtcars
+
+#Adding missing values
+df[c(1,3),c(2,4)] <- NA
+df
+df[is.na(df)] <- 0
+df
+```
+
+Why do you get an error if `df <- nycflights13::flights`?
+
+> Because 'nycflights13::flights' has different types of data, some of them are character columns, so they are not able to store the numeric value 0, it should be transform to character type like string "0".
+
+```{r}
+df <- nycflights13::flights
+
+```
+
+8. Given a linear model, e.g., `mod <- lm(mpg ~ wt, data = mtcars)`, extract the residual degrees of freedom. Then extract the R squared from the model summary (`summary(mod)`)
+
+```{r}
+mod <- lm(mpg ~ wt, data = mtcars)
+
+dof<- mod$df.residual
+rsq<- summary(mod)$r.squared
+dof
+rsq
+```
+
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. course website
+2. checkpoints
+3. r documentation
+
+**Reflection:**
+I feel that checkpoints questions are very useful as a quick review of definition. The questions and opinions can give a simple practice of related code and definition in r. The course website gives more detailed codes and methods with examples. I used the r documentation to find df.residual method and r.squared method.

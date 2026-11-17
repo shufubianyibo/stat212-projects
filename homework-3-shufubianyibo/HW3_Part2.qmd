@@ -1,0 +1,207 @@
+---
+title: "Advanced map visualizations"
+subtitle: "HW3 Part 2"
+author: "YOUR NAME"
+format: 
+  html:
+    embed-resources: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a High Pass for this part of the homework.
+
+**Requirements for high passing:**
+
+- 1. downloaded data and read it in
+- 2. MN plot of walkability (filtering + choropleth)
+- 2. save filtered dataset as R Data file
+- 3. Get US county boundaries, transform to have same CRS if necessary
+- 4. Spatial join (order matters), Weighted mean and SD by county
+- 5. County-level map of Average Walkability of a state of choice
+- 5. County-level map of SD in Walkability of a state of choice
+- 6. Scatterplot of SD and Average Walkability overall
+- 6. Scatterplot of SD and Average Walkability faceted by state
+- 6. Insight sentences about graphic
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.)  Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+**Important GitHub note:** DO NOT add, commit, and push anything in the `data/raw` folder. The files for this are too big, and you'll run into file size restrictions. 
+
+
+
+# Exercises
+
+The US Walkability Index dataset provides relative walkability information for all 2019 census block groups. Through these exercises, we will explore walkability patterns across the United States.
+
+**Exercise 1:** Go to [this website](https://catalog.data.gov/dataset/), search for "walkability index", and download the US Walkability Index dataset (the Zip file called `WalkabilityIndex.zip`). Unzip this file within a `data/raw` folder within the folder containing this `.qmd`.
+
+Read in the dataset with `st_read()` by providing a relative path to the `WalkabilityIndex/Natl_WI.gdb` folder (as opposed to a file within that folder). This will take a few seconds. You should see a message `using driver OpenFileGDB` during this process.
+
+```{r reading, eval = FALSE}
+library(tidyverse)
+library(sf)
+library(dplyr)
+library(ggplot2)
+walk_index <- st_read("data/raw/WalkabilityIndex/Natl_WI.gdb")
+save(walk_index, file = 'data/clean/walk_index.RData')
+```
+
+
+**Exercise 2:** Let's first get a sense for the data by making a map of walkability indices for Minnesota. You will first need to filter the `walk_index` dataset by using the `STATEFP` variable. `STATEFP` contains the state's [FIPS code](https://transition.fcc.gov/oet/info/maps/census/fips/fips.txt) which is `"27"` for Minnesota. The `NatWalkInd` variable contains the walkability indices. Save this smaller dataset in a `data/clean` folder as `walk_index_mn.RData`, which is an R Data file. 
+
+```{r mn_wi_filter, eval = FALSE}
+walk_index_mn <- walk_index%>% # Code for filtering to MN
+  filter(STATEFP==27)
+save(walk_index_mn, file = 'data/clean/walk_index_mn.RData')
+```
+
+```{r mn_wi_map}
+load('data/clean/walk_index.RData')
+load('data/clean/walk_index_mn.RData')
+library(tidyverse)
+library(sf)
+library(dplyr)
+library(ggplot2)
+# Plot walkability data for MN
+ggplot()+
+  geom_sf(data = walk_index_mn, aes(fill = NatWalkInd))+
+  scale_fill_gradientn(
+        name = "walkability",
+        colors = c("green", "yellow", "orange", "red"),
+        na.value = "grey" )
+
+```
+
+
+**Exercise 3:** We will start setting up to do a nationwide exploration of walkability. Use the `us_counties()` function within the `USAboundaries` package to obtain the most current low resolution county boundaries for all US counties. (Look up the documentation for this function to see how to structure the arguments.)
+
+If needed, transform `all_us_counties` to have the same CRS as the Walkability Index dataset.
+
+```{r get_us_counties}
+library(USAboundaries)
+all_us_counties <- us_counties(resolution = "low")
+
+st_crs(all_us_counties) == st_crs(walk_index)
+
+all_us_counties<- all_us_counties%>%
+  st_transform(crs = st_crs(walk_index))
+st_crs(all_us_counties) == st_crs(walk_index)
+```
+
+
+**Exercise 4:** Use `st_join()` within the `sf` package to insert walkability information into the `all_us_counties` dataset. Because the walkability information is available over regions that are smaller than counties, this join will merge in multiple regions of walkability information for each county.
+
+After the join, summarize the walkability index within each county with the weighted mean and weighted standard deviation, where the weights are given by the `Shape_Area` variable.
+
+*Background information about weighted summary measures:* In an ordinary (unweighted) mean and standard deviation, each observation gets a weight of 1--that is, every observation contributes equally to the calculation. We want to compute a weighted measure because the regions within a county have different areas.
+
+*Techinical implementation:* You can install the `Hmisc` package and use the following:
+
+- `Hmisc::wtd.mean(x, weights)`
+- `Hmisc::wtd.var(x, weights)`
+    - This computes a weighted variance--you'll need to take the square root after this.
+
+Note: DON'T add `library(Hmisc)` to your package loading code chunk. `Hmisc` contains a function called `summarize()` that will conflict with `dplyr::summarize()`.
+
+In both functions, `x` represents the vector of numerical entries you want to summarize, and `weights` is a vector of the same length as `x` that gives the weight for each entry of `x`.
+
+```{r summary_over_counties}
+# Use st_join to merge county boundaries and regions where we have walkability index data
+all_us_counties_walk_index <- st_join(all_us_counties, walk_index)
+
+# Use Hmisc::wtd.mean() and Hmisc::wtd.var() to compute the weighted mean and SD of the walkability index (weighted by Shape_Area)
+all_us_counties_walk_index_summ <- all_us_counties_walk_index%>%
+  group_by(geoid) %>%
+  summarize(
+    weighted_mean_walk_index = Hmisc::wtd.mean(NatWalkInd, Shape_Area, na.rm = TRUE), 
+    weighted_var_walk_index = Hmisc::wtd.var(NatWalkInd, Shape_Area, na.rm = TRUE))%>%
+  mutate(weighted_sd_walk_index = sqrt(weighted_var_walk_index))
+  
+```
+
+
+**Exercise 5:** Pick one state. For this state, make a map that allows you to see average walkability within a county and a map that allows you to see the variability in walkability across a county. (The goal of this part is to get a sense of the county-level walkability data before zooming out to do a nationwide exploration.)
+
+```{r one_state_county_summary}
+# Filter down to one state and make maps
+all_us_counties_walk_index_joined <- st_join(all_us_counties_walk_index, all_us_counties_walk_index_summ)
+
+walk_index_MN <- all_us_counties_walk_index_joined%>%
+  filter(stusps=="MN")
+```
+```{r}
+ggplot() +
+  geom_sf(data = walk_index_MN, aes(fill = weighted_mean_walk_index)) +
+  scale_fill_gradientn(
+        name = "Average Walkability Index",
+        colors = c("blue", "green", "yellow", "orange", "red"),
+        na.value = "grey80"
+    )+
+  labs(title = "Average Walkability Index by County in Minnesota") +
+  theme_minimal()
+```
+```{r}
+ggplot() +
+  geom_sf(data = walk_index_MN, aes(fill = weighted_var_walk_index), color = "white", size = 0.1) +
+  scale_fill_gradientn(
+        name = "Walkability SD",
+        colors = c("blue", "green", "yellow", "orange", "red"),
+        na.value = "grey80"
+    )+
+  labs(title = "Variability of Walkability Index by County in Minnesota") +
+  theme_minimal()
+```
+
+
+**Exercise 6:** Make plots (not maps) that allow you to explore if there is a relationship between the variability in walkability in a county and the average level of walkability in a county. One plot should depict the United States as a whole, and a second plot should break down this relationship across states. Summarize your findings and what you would be curious to explore next based on your explorations.
+
+```{r sd_vs_mean_us}
+# Plots for the US and by states
+ggplot(all_us_counties_walk_index_summ, aes(x = weighted_mean_walk_index, y = weighted_sd_walk_index)) +
+  geom_point() + 
+  geom_smooth(method = "lm")+
+  labs(
+    title = "Relationship between Average and Variability of Walkability Index in USA",
+    x = "Weighted Mean Walkability Index",
+    y = "Weighted Standard Deviation of Walkability Index"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(all_us_counties_walk_index_joined, aes(x = weighted_mean_walk_index, y = weighted_sd_walk_index)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  facet_wrap(~ stusps) + 
+  labs(
+    title = "Relationship between Average and Variability of Walkability Index by State",
+    x = "Weighted Mean Walkability Index",
+    y = "Weighted Standard Deviation of Walkability Index"
+  ) +
+  theme_minimal()+
+  theme(strip.text = element_text(size = 8), # Adjust facet label size if needed
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 6))
+```
+
+
+> Summarize your findings and what you would be curious to explore next based on your explorations.
+
+Overall, the variability is increasing when the average increase, and the relation seems strong and clear. Most states also have this relation between varablility and average, except DC, ID, AK, AZ that have weaker or even opposite relation. I might want to study about these abnormal states more detailed in next step and find what makes them different.
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. Course website
+2. 112 course website
+3. R documents
+
+**Reflection:**
+
+The course website of this course is most helpful, the map methods have clear examples in it. I also checked the 112 course website for the facet method. I check the documents in R and tried to make each plot of the states larger but I can't find any convinient way.
+
+
+

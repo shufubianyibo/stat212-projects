@@ -1,0 +1,39 @@
+---
+title: "Milestone5Tasks_Sidney"
+format: html
+---
+
+```{r}
+library(tidyverse)
+bestseller <- read_csv("../../data/clean/full_bestseller.csv")
+```
+
+```{r}
+clean <- bestseller %>% 
+  group_by(title) %>%
+  summarize(
+    best_ranking = min(rank),
+    max_weeks_on_list = max(weeks_on_list),
+    publisher = first(publisher),
+    author = first(author),
+    .groups = "drop"
+  )
+```
+
+```{r}
+clean %>% 
+  filter(max_weeks_on_list > 1) %>% 
+  filter(best_ranking == 1) %>% 
+  ggplot(aes(x = max_weeks_on_list)) +
+  geom_histogram(binwidth = 10)
+```
+
+```{r}
+clean %>% 
+  #filter(title == "LESSONS IN CHEMISTRY") %>% 
+  ggplot(aes(x = best_ranking, y = max_weeks_on_list)) +
+  geom_point() +
+  geom_smooth()
+
+```
+

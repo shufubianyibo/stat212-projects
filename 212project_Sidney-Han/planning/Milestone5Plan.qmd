@@ -1,0 +1,28 @@
+---
+title: "Milestone5Plan"
+format: html
+---
+
+# Research questions: 
+For the parts of data with reviews, we are planing to discuss the most frequently appeared words for each rating star from 1 to 5.
+For the bestseller lists, how do factors such as publishing agency, author, and ranking contribute to book success?
+
+# Planned digital artifact:
+1. A combined plot with most frequently appeared words for each rating star from 1 to 5 that more frequent word have larger size, and we can click the word to see how many times it appeared in this rating.
+2. An interactive plot that shows the number of books with the highest number of weeks on the bestseller list, with the ability to filter by publisher, author, and top ranking.
+
+# Tasks:
+[done] task 1: Make separated most frequently appeared words for each rating star from 1 to 5 that are not interactive. (Due by 4.22)
+
+[done] task 2: Make the words frequency plots combined and interactive. (Due by 4.29)
+
+[done] task 3: Might also add count of reviews by stars plot and word count plot to the words frequency plot to make it more informative. (Due by 4.29)
+
+[done] task 4: Create bar plot of variable `weeks_on_list` to count the number of unique titles with the highest number of weeks on the NYT bestseller list. (Due by 4.29)
+
+[done] task 5: Make above plot interactive, adding the ability to filter by publishing agency, author, and top ranking. (Due by 4.30)
+
+[] task 6: Weave review plots and the bestseller plot together thematically. (Due by 5.2)
+
+Task 1,2,3 by Han Sun. Tasks 4, 5, 6 by Sidney Langford.
+

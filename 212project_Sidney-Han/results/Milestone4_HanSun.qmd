@@ -1,0 +1,62 @@
+---
+title: "Milestone4_HanSun"
+format: html
+---
+
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)   
+library(ggplot2)
+review_data <- read_csv("../data/clean/primarycleaned_reviews_data.csv")
+```
+
+```{r}
+review_data <- review_data %>%
+  mutate(stars= as.character(stars))
+ggplot(data = review_data, aes(x=review_length, color = stars))+
+  geom_density() + 
+  labs(
+    title = "Distribution of Reviews Length by Stars",
+    x = "Character Count of Review"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+
+review_data_shortreview <- review_data%>%
+  filter(review_length <= 1000)
+ggplot(data = review_data_shortreview, aes(x=stars, y=review_length)) +
+  geom_boxplot() + 
+  labs(
+    title = "Word Count vs. Stars (Character Count <= 1000)",
+    y = "Character Count of Review"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+
+review_data_edited <- review_data %>%
+  filter(written_time != edited_time)
+
+review_data_notedited <- review_data %>%
+  filter(written_time == edited_time)
+
+ggplot(data = review_data_edited, aes(x=stars)) +
+  geom_bar() + 
+  labs(
+    title = "Count of Stars for the Editted Comments"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+
+ggplot(data = review_data_notedited, aes(x=stars)) +
+  geom_bar() + 
+  labs(
+    title = "Count of Stars for the Not Editted Comments"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+```
+Feedbacks: Combine stars, use bar plot for density, slice the data by character count smaller to avoid too many outliers.
+
+
+

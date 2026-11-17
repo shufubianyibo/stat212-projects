@@ -1,0 +1,421 @@
+---
+title: "Advanced visualization with ggplot2"
+subtitle: "HW2 Part 2"
+author: "Han Sun"
+format: 
+  html:
+    embed-resources: true
+---
+
+# Instructions
+
+**Task:** Open up the New York Times article [A Summer of Strikes](https://www.nytimes.com/interactive/2023/09/03/business/economy/strikes-union-sag-uaw.html), and scroll down to the plot titled "Union membership has fallen sharply over the past four decades (Share of the work force in a union, by industry)".
+
+![](http://bcheggeseth.github.io/212_spring_2025/images/challenge-2-goal.png)
+
+Using `ggplot2` and other tools in R, recreate this plot. Note that you will need to create the data underlying the plot yourself. You can create this data in R with `tibble()`. You can also write the data in Excel or Google Sheets and export it as a CSV file.
+
+**Requirements for high passing:**
+
+- Overall
+  - Panels for "All workers", "By Sector", and "By Industry" are shown.
+  - Arrows showing the change from 1983 to 2022 are shown.
+    - Note: be sure that the arrows all point in the correct direction!
+  - The actual percentages in 1983 and 2022 are shown as text.
+  - X-axis tick marks are at 0, 25, and 50.
+  - Plot title says "Union membership has fallen sharply over the past four decades".
+  - Plot subtitle says "Share of the work force in a union, by industry".
+- Resource reflection
+    - At least 1 resource is listed
+    - At least 3 sentences about resources and their helpfulness in the task
+
+**Bonus**: Additional possibilites to enhance your vizualization include adjusting the default aesthetics of the arrows, aligning your plots neatly, and adding margins in order to left-align the y-axis text. 
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file in your Github repo.
+
+
+
+
+
+# Setup
+
+```{r}
+# Code for loading packages
+# And code for reading in data if using the Excel/Google Sheets-->CSV approach
+library(readxl)   
+library(dplyr)    
+library(purrr)
+library(readr)
+library(tidyverse)
+ind_path <- "~/Documents/GitHub/DS212/Homework/homework-2-shufubianyibo/byIndustry"
+ind_list <- list.files(
+  path = ind_path,
+  pattern = "^ind_.*\\.xlsx$",   
+  full.names = TRUE             
+)
+ind_data <- map_dfr(ind_list, function(f) {
+  fname <- basename(f)  
+  this_year <- sub(".*_(\\d{4})\\.xlsx$", "\\1", fname)
+  dat <- read_excel(f, skip = 2)
+  dat %>%
+    mutate(Year = as.integer(this_year))
+})
+write_csv(ind_data , "byIndustry/ind_data.csv")
+ind_data <- read_csv("byIndustry/ind_data.csv")
+
+sec_data <- read_excel("bySector/state_1983_2023.xlsx")
+write_csv(sec_data, "bySector/sec_data.csv")
+sec_data <- read_csv("bySector/sec_data.csv")
+```
+
+```{r}
+# Code for generating the data (if using the tibble() approach)
+```
+
+
+
+
+# Visualization
+
+## By Industry
+```{r}
+# Code for recreating the visualization
+# Use as many code chunks as you need to organize your work well
+ind_data_sub <- ind_data%>%
+  filter(Year == c(1983,2022))%>%
+  rename(
+    employment = `Employment (in 1000s)`, 
+    members = `Members (in 1000s)`
+  )%>%
+  mutate(employment = as.numeric(employment),
+         members = as.numeric(members))%>%
+  select(Year, employment, members, Industry)%>%
+  pivot_wider(names_from = Year, values_from = c(employment,members), names_glue = "{.value}_{Year}")
+
+
+Transform_and_utilities <-ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "transportation|TRANSPORTATION|utilitiesUTILITIES")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Transform and utilities")
+
+Manufacturing <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "MANUFACTURING|manufacturing")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Manufacturing")
+
+Mining <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "mining|MINING")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Mining")
+
+Construction <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "construction")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Construction")
+
+Education_and_health <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "Education|health|Health|HEALTH")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Education and health")
+
+Arts_entertainment_and_recreation <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "RECREATION|recreation|ENTERTAINMENT|\\barts\\b")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Arts entertainment and recreation")
+
+Business_services <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "Business|BUSINESS")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Business services")
+
+Retail_food_and_hospitality <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "Retail|retail|food|Food|hospitals|HOSPITALS")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Retail food and hospitality")
+
+Public_administration <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "PUBLIC|public|Administration")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Public administration")
+
+Agriculture <- ind_data_sub%>%
+  mutate(tf = str_detect(Industry, "Agricultural|AGRICULTURE")) %>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  filter(tf=="TRUE")%>%
+  mutate(Industry_Name = "Agriculture")
+```
+
+```{r}
+list_of_dataframes <- list(
+  Transform_and_utilities,
+  Manufacturing,
+  Mining,
+  Construction,
+  Education_and_health,
+  Arts_entertainment_and_recreation,
+  Business_services,
+  Retail_food_and_hospitality,
+  Public_administration,
+  Agriculture
+)
+new_ind_data <- bind_rows(list_of_dataframes)
+new_ind_data <- new_ind_data%>%
+  mutate(member_percentage_1983 = 100*Total_Members_1983/Total_Employment_1983,
+         member_percentage_2022 = 100*Total_Members_2022/Total_Employment_2022)%>%
+  select(-tf)
+```
+
+```{r}
+ind_plot = ggplot(new_ind_data, aes(x=member_percentage_1983, y=Industry_Name, xend = member_percentage_2022))+
+  geom_segment(aes(x = member_percentage_1983, xend = member_percentage_2022, 
+        yend = Industry_Name),
+    arrow = arrow(length = unit(0.25, "cm")),
+    color = "steelblue", size = 1)+
+  geom_text(
+    aes(x = member_percentage_1983, hjust = -0.5, label = paste(round(member_percentage_1983,0), "%", sep="")), 
+    fontface = "bold"
+  ) +
+  geom_text(
+    aes(x = member_percentage_2022, hjust = 1, label = paste(round(member_percentage_2022,0), "%", sep="")), 
+    fontface = "bold"
+  ) +
+  scale_x_continuous(
+    limits = c(0,50), 
+    breaks = c(0,25,50),
+    labels = c("0%","25","50") 
+  )+
+  labs(
+    x = NULL,
+    y = NULL,
+    title = "BY INDUSTRY"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.y = element_blank(),  
+    plot.title = element_text(face = "bold", hjust = 0)
+  )
+ind_plot
+```
+
+## Sector
+```{r}
+sec_data_sub <- sec_data%>%
+  filter(Year %in% c(1983, 2022),
+         Sector != "Total")%>%
+  rename(
+    employment = `Employment (in 1000s)`, 
+    members = `Members (in 1000s)`
+  )%>%
+  mutate(employment = as.numeric(employment),
+         members = as.numeric(members))%>%
+  select(Year, employment, members, Sector)%>%
+  group_by(Year, Sector)%>%
+  summarise(Total_Employment = sum(employment),
+            Total_Members = sum(members))%>%
+  pivot_wider(names_from = Year, values_from = c(Total_Employment,Total_Members), names_glue = "{.value}_{Year}")%>%
+  mutate(tf = str_detect(Sector, "Priv"))%>%
+  group_by(tf)%>%
+  summarise(
+    Total_Employment_1983 = sum(Total_Employment_1983, na.rm = TRUE),
+    Total_Members_1983 = sum(Total_Members_1983, na.rm = TRUE),
+    Total_Employment_2022 = sum(Total_Employment_2022, na.rm = TRUE),
+    Total_Members_2022 = sum(Total_Members_2022, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  mutate(Sector = str_replace(tf,"FALSE","Public"))%>%
+  mutate(Sector = str_replace(Sector,"TRUE","Private"))%>%
+  select(-tf)%>%
+  mutate(member_percentage_1983 = 100*Total_Members_1983/Total_Employment_1983,
+         member_percentage_2022 = 100*Total_Members_2022/Total_Employment_2022)
+```
+
+
+
+```{r}
+sec_plot <- ggplot(sec_data_sub, aes(x=member_percentage_1983, y=Sector, xend = member_percentage_2022))+
+  geom_segment(aes(x = member_percentage_1983, xend = member_percentage_2022, 
+        yend = Sector),
+    arrow = arrow(length = unit(0.25, "cm")),
+    color = "steelblue", size = 1)+
+  geom_text(
+    aes(x = member_percentage_1983, hjust = -1, label = paste(round(member_percentage_1983,0), "%", sep="")), 
+    fontface = "bold"
+  ) +
+  geom_text(
+    aes(x = member_percentage_2022, hjust = 2, label = paste(round(member_percentage_2022,0), "%", sep="")), 
+    fontface = "bold"
+  ) +
+  scale_x_continuous(
+    limits = c(0,50), 
+    breaks = c(0,25,50),
+    labels = c("0%","25","50") 
+  )+
+  labs(
+    x = NULL,
+    y = NULL,
+    title = "BY SECTOR"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.y = element_blank(),  
+    plot.title = element_text(face = "bold", hjust = 0)
+  )
+sec_plot
+```
+
+## All workers
+```{r}
+all_workers <- sec_data%>%
+  filter(Year %in% c(1983, 2022),
+         Sector == "Total")%>%
+  rename(
+    employment = `Employment (in 1000s)`, 
+    members = `Members (in 1000s)`
+  )%>%
+  mutate(employment = as.numeric(employment),
+         members = as.numeric(members))%>%
+  select(Year, employment, members, Sector)%>%
+  group_by(Year, Sector)%>%
+  summarise(Total_Employment = sum(employment),
+            Total_Members = sum(members))%>%
+  pivot_wider(names_from = Year, values_from = c(Total_Employment,Total_Members), names_glue = "{.value}_{Year}")%>%
+  
+  mutate(member_percentage_1983 = 100*Total_Members_1983/Total_Employment_1983,
+         member_percentage_2022 = 100*Total_Members_2022/Total_Employment_2022)%>%
+  mutate(Sector = str_replace(Sector, "Total","All workers"))
+```
+
+```{r}
+all_plot <- ggplot(all_workers, aes(x=member_percentage_1983, y=Sector, xend = member_percentage_2022))+
+  geom_segment(aes(x = member_percentage_1983, xend = member_percentage_2022, 
+        yend = Sector),
+    arrow = arrow(length = unit(0.25, "cm")),
+    color = "steelblue", size = 1)+
+  geom_text(
+    aes(x = member_percentage_1983, hjust = -1, label = paste(round(member_percentage_1983,0), "%", sep="")), 
+    fontface = "bold"
+  ) +
+  geom_text(
+    aes(x = member_percentage_2022, hjust = 2, label = paste(round(member_percentage_2022,0), "%", sep="")), 
+    fontface = "bold"
+  ) +
+  scale_x_continuous(
+    limits = c(0,50), 
+    breaks = c(0,25,50),
+    labels = c("0%","25","50") 
+  )+
+  labs(
+    x = NULL,
+    y = NULL,
+    title = "Union membership has fallen sharply\nover the past four decades",
+    subtitle = "Share of the work force in a union, by industry") +
+  theme_minimal() +
+  theme(
+    panel.grid.major.y = element_blank(),  
+    plot.title = element_text(face = "bold")
+  )
+all_plot
+```
+
+## Final plot
+```{r}
+library(patchwork)
+final_plot <- all_plot / sec_plot / ind_plot + plot_layout(heights = c(1, 2,10))
+final_plot
+```
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. https://hashcx.github.io/mac-comp112website-f24/activities/08-wrangling-verbs.html
+2. https://ggplot2.tidyverse.org/reference/geom_abline.html
+3. Gemini
+
+**Reflection:**
+
+
+I still used the website of ggplot2 to find the methods of plotting, the activities website of STAT112 to review some data wrangling skills and methods of labels and strings, and I asked gemini for some theme methods like bold. The 112 website is still very helpful since it has clearer examples. I feel that examples with real data is more helpful for me to understand since I can actually run it and learn what it does.
+
+

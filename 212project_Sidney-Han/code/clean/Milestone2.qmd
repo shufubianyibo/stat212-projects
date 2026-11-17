@@ -1,0 +1,9 @@
+---
+title: "Milestone2"
+format: html
+---
+Sidney:
+Unfortunately, I could not successfully access the New York Times Bestseller List API. While I am able to view it as a data frame, the information called from the API is actually a list of different lengths and I am unsure how to fix it. I am still able to view the data in what looks like a data frame format (which can be seen under raw data), so I have added the variables to the codebook. I hope to remedy this after break.
+
+Han:
+I generated 3 csv files from LibraryThing's API, including most information we want from LibraryThing, but there is a backward that LibraryThing's API don't have method to transform ISBN to book name and all data on LibraryThing uses ISBN. However, there is method to get ISBN from book title, so we might need to create an ISBN varibale for the data from New York Times Bestseller List to make match them up in further works.

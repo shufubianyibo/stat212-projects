@@ -1,0 +1,202 @@
+---
+title: "Adv. Data wrangling & Generalization"
+subtitle: "HW5 Part 1"
+author: "YOUR NAME"
+format: 
+  html:
+    self-contained: true
+---
+
+# Instructions
+
+**Requirements for high passing:**
+
+- Ex 1: Get the desired output
+- Ex 1: Used general code (for any dataset input)
+- Ex 2: Get the desired output
+- Ex 2: Used general code (for any dataset input)
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.)  Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+
+# Overview
+
+You will be recreating core functionality of a few functions in the `janitor` [package](https://cran.r-project.org/package=janitor).
+
+
+# Exercise 1: `top_levels()`
+
+Look at the [example usage](https://cran.r-project.org/web/packages/janitor/vignettes/janitor.html#count-factor-levels-in-groups-of-high-medium-and-low-with-top_levels) for the `top_levels()` function, and look at the documentation for this function with `?top_levels`.
+
+Without using `top_levels()`, you should write code to summarize `f`:
+
+- Have the first column of output show the categories that correspond to`Low`, `Medium`, and `High`
+- Use functions in the `forcats` package
+- Automatically calculate a percentage column
+- Do this for the number of levels to include in top and bottom groups to be 2 and 1. 
+
+
+```{r}
+f <- factor(c("strongly agree", "agree", "neutral", "neutral", "disagree", "strongly agree"),
+            levels = c("strongly agree", "agree", "neutral", "disagree", "strongly disagree"))
+```
+
+Your Goal Output (number of levels to include in top and bottom groups = 2)
+
+```
+#>                            f n   percent
+#>        strongly agree, agree 3 0.5000000
+#>                      neutral 2 0.3333333
+#>  disagree, strongly disagree 1 0.1666667
+```
+
+Your Goal Output (number of levels to include in top and bottom groups = 1)
+
+```
+#>                         f n   percent
+#>            strongly agree 2 0.3333333
+#>  agree, neutral, disagree 4 0.6666667
+#>         strongly disagree 0 0.0000000
+#>         
+```
+
+You should write code that would work for any data frame, not just the `f` factor.
+
+```{r top_levels}
+library(forcats)
+library(dplyr)
+library(tidyverse)
+level_pct<- function(vec, n) {
+  counts <- fct_count(vec)
+  levels <- as.character(counts$f)
+  num_levels <- length(levels)
+  if (n * 2 < num_levels){
+    top_group <- levels[1:n]
+    bottom_group <- levels[(num_levels - n + 1):num_levels]
+    middle_group <- levels[(n+1):(num_levels-n)]
+    new_levels <- c(
+      paste(top_group, collapse = ", "),
+      paste(middle_group, collapse = ", "),
+      paste(bottom_group, collapse = ", ")
+    )
+    collapsed_f <- fct_collapse(
+      vec,
+      !!new_levels[1] := top_group,
+      !!new_levels[2] := middle_group,
+      !!new_levels[3] := bottom_group
+    )
+  } else if(n * 2 >= num_levels & n < num_levels){
+      top_group <- levels[1:n]
+      bottom_group <- levels[(num_levels - n + 1):num_levels]
+      new_levels <- c(
+      paste(top_group, collapse = ", "),
+      paste(bottom_group, collapse = ", ")
+    )
+      collapsed_f <- fct_collapse(
+        vec,
+        !!new_levels[1] := top_group,
+        !!new_levels[2] := bottom_group
+    )
+  } else {
+    top_group <- levels[1:num_levels]
+    new_levels <- c(
+      paste(top_group, collapse = ", ")
+    )
+    collapsed_f <- fct_collapse(
+        vec,
+        !!new_levels[1] := top_group
+    )
+  }
+  result <- tibble(f = collapsed_f) %>%
+    count(f, .drop = FALSE) %>%
+    mutate(percent = n / sum(n)) %>%
+    arrange(f)  
+  result$f <- as.character(result$f) 
+  
+  return(result)
+}
+```
+
+
+```{r}
+level_pct(f,2)
+level_pct(f,1)
+f_new <- factor(c("A", "A", "B"), levels = c("A", "B", "C"))
+level_pct(f_new,1)
+level_pct(f_new,2)
+level_pct(f_new,3)
+f_many <- factor(letters[1:10], levels = letters[1:10])
+level_pct(f_many,1)
+level_pct(f_many,2)
+level_pct(f_many,3)
+```
+
+
+
+# Exercise 2: `get_dupes()`
+
+Look at the [example usage](https://cran.r-project.org/web/packages/janitor/vignettes/janitor.html#explore-records-with-duplicated-values-for-specific-combinations-of-variables-with-get_dupes) for the `get_dupes()` function, and look at the documentation for this function with `?get_dupes`.
+
+Without using `get_dupes()`,  you should write code that:
+
+- returns the records (and inserts a count of duplicates) of `mtcars` that have duplicated values for `wt` and `cyl`.
+
+```{r}
+head(mtcars)
+```
+
+Your Goal Output:
+
+```
+#>     wt cyl dupe_count  mpg  disp  hp drat  qsec vs am gear carb
+#> 1 3.44   6          2 19.2 167.6 123 3.92 18.30  1  0    4    4
+#> 2 3.44   6          2 17.8 167.6 123 3.92 18.90  1  0    4    4
+#> 3 3.57   8          2 14.3 360.0 245 3.21 15.84  0  0    3    4
+#> 4 3.57   8          2 15.0 301.0 335 3.54 14.60  0  1    5    8
+```
+
+
+
+You should write code that would work for any data frame, not just `mtcars`.
+
+```{r get_dupes}
+find_dupes <- function(dat, ...) {
+  dat %>%
+    group_by(...) %>%
+    mutate(dupe_count = n(),
+           " " = row_number()) %>%
+    filter(dupe_count > 1) %>%
+    ungroup()%>%
+    relocate(" ", ..., dupe_count) %>% 
+    arrange(...)
+}
+```
+
+```{r}
+find_dupes(mtcars, wt, cyl)
+df_no_dupes <- data.frame(x = 1:3, y = 4:6)
+df_all_dupes <- data.frame(x = c(1, 1, 1), y = c(2, 2, 2))
+df_single_group <- data.frame(x = c(1, 1, 2), y = c(3, 4, 5))
+find_dupes(df_no_dupes,x,y)
+find_dupes(df_all_dupes,x,y)
+find_dupes(df_single_group,x)
+find_dupes(df_single_group,x,y)
+```
+
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. R documentation
+2. Gemini
+3. stackoverflow
+
+**Reflection:**
+
+The R documentation of the two functions are very helpful. I can understand what I need in my function basicly from the description of the variables. I used Gemini to solve an error about pasting in Exercise 1, which is using !! to flag a variable as having been quoted, and I searched more applications about this method on stackoverflow to have better understanding about this method.
+
+
+

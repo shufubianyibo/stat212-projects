@@ -1,0 +1,59 @@
+---
+title: "combinedata"
+format: html
+---
+
+```{r}
+bestseller_21<-read_csv("../bestseller21.csv")
+bestseller_22<-read_csv("../bestseller22.csv")
+bestseller_23<-read_csv("../bestseller23.csv")
+bestseller_24<-read_csv("bestseller24.csv")
+reviews <- read_csv("../book_reviews.csv")
+```
+
+```{r}
+
+average_rate_data <- reviews%>%
+  group_by(isbn)%>%
+  mutate(average_rate=mean(stars))%>% 
+  ungroup()%>%
+  mutate(review_length = str_length(review_text))
+
+unique_book_bestseller <- bestseller%>%
+  group_by(primary_isbn10)%>%
+  mutate(highest_rank = min(rank),
+            .groups = "drop")%>% 
+  ungroup()%>%
+  select(-rank)%>%
+  select(-rank_last_week)%>%
+  unique()
+  
+
+```
+
+
+```{r}
+#join the bestsellers
+bigseller <- bestseller_24 %>% 
+  full_join(bestseller_23) %>% 
+  full_join(bestseller_22) %>% 
+  full_join(bestseller_21) %>% 
+  select(-primary_isbn13)
+```
+
+
+```{r}
+write_csv(unique_book_bestseller, "primarycleaned_bestseller_data.csv")
+
+```
+
+
+```{r}
+write_csv(average_rate_data, "primarycleaned_reviews_data.csv")
+```
+
+
+```{r}
+write_csv(bigseller, "full_bestseller.csv")
+```
+

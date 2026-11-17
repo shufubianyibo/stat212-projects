@@ -1,0 +1,70 @@
+---
+title: "Data wrangling"
+subtitle: "HW4 Part 2"
+author: "YOUR NAME"
+format: 
+  html:
+    embed-resources: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a High Pass for this challenge.
+
+**Requirements for high passing:**
+
+Use tidyverse functions to do the following:
+
+- Create a new `year` variable that covered requirements for BCE and century listed
+- Create a `artist_name` variable with only the name of first artist and checking to other missing values (unknown artists)
+- Create a `classification_first` variable with only the name of first classification
+
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.) Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+##  Mia Data
+
+Load in the `mia_collection.csv` dataset of the collection of objects from the Minneapolis Institute of Art (Mia).
+
+```{r}
+library(tidyverse)
+mia <- read.csv("data/mia_collection.csv")
+
+```
+
+
+Clean the data in the `mia_collection` tibble in the following way:
+
+- Create a new column `year` that extracts the first listed year from the `dated` column; if it is BCE, make the year negative; if it says a century, make the year the first year of that century (e.g., 19th century should be 1801)
+- Create a new column `artist_name` that extracts the first listed name from the `artist` column. Make sure to make any missingness explicit. Do not include the type of artist (e.g., painter, sculptor) in the name.
+- Create a new column `classification_first` that extracts the first listed classification from the `classification` column
+
+
+Make sure that you are checking the assumptions you are making about the data and that you are appropriately handling any missingness in the data.
+
+```{r}
+
+mia_cleaned <- mia %>%
+  mutate(
+    # 'year' column
+    year_temp = str_extract(dated, "\\d+"),  
+    year = case_when(
+      str_detect(dated, "BCE") & str_detect(dated, "century") ~ (as.numeric(year_temp) - 1) * -100, 
+      str_detect(dated, "BCE") ~ as.numeric(year_temp) * -1,  
+      str_detect(dated, "century") ~ (as.numeric(year_temp) - 1) * 100 + 1,  
+      TRUE ~ as.numeric(year_temp)  
+    ),
+
+    # 'artist_name' column
+    artist_name = str_extract(artist, ":[^,;\\(]+"), 
+    artist_name = ifelse(is.na(artist_name) | artist_name == "", "Unknown Artist", artist_name), 
+    artist_name = str_replace(artist_name, "^: ", ""),
+
+    # 'classification_first' column
+    classification_first = str_extract(classification, "^[^,;\\(]+") %>% 
+      replace_na("Unknown Classification")
+
+  ) %>%
+  select(-year_temp)
+```
+

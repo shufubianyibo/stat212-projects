@@ -1,0 +1,220 @@
+---
+title: "Scraping"
+subtitle: "HW8 Part 1"
+author: "YOUR NAME"
+format: 
+  html:
+    self-contained: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a High Pass for this challenge.
+
+**Requirements for high passing:**
+
+Ex 1
+
+- Have a correct answer to who can scrape that data based on the information in robots.txt
+
+Ex 2
+
+- Write a description of what `httr_attr()` does
+- Include a code example to demonstrate what it does
+
+Ex 3
+
+- Code should result in 2044 rows and 3 columns of data about cheese
+- Code should result in unique information about name, url, and whether or not it has an image
+- Code should include Sys.sleep(1) to not overtax website
+
+
+Ex 4
+
+- Code should result in 10 rows and 6 columns of data about 10 cheeses
+- Code should result in unique information about cheese identifier (name or url), milk, country, family, type, flavor
+- Code should include Sys.sleep(1) to not overtax website
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.)  Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file. Please be sure that any code output you want graded is clearly printed in the HTML. 
+
+
+## Exercises
+
+**Goal:** Scrape information from <https://www.cheese.com> to obtain a dataset of characteristics about different cheeses, and gain deeper insight into your coding process.
+
+
+
+**Ex 1:** Locate and examine the `robots.txt` file for <https://www.cheese.com>. Summarize (in words) what you learn from the cheese.com `robots.txt` file.
+
+It said it allow any web scrap on https://www.cheese.com, and the full URL pointing to its actual XML sitemap file is https://www.cheese.com/sitemap.xml.
+
+
+**Ex 2:** Learn about the `html_attr()` function from `rvest`. Describe how this function works, and give a small code example to illustrate how it works.
+
+It extracts data from attributes, and it returns a string.
+
+```{r}
+library(rvest)
+html <- minimal_html("
+  <p><a href='https://www.cheese.com/vegetarian'>vegetarian cheese</a></p>
+")
+
+html %>% 
+  html_elements("p") %>%
+  html_element("a") %>% 
+  html_attr("href")
+
+```
+
+
+**Ex 3:** Obtain the following information for **all** cheeses in the alphabetical database <https://www.cheese.com/alphabetical/>:
+
+- Cheese name
+- URL for the cheese's webpage (e.g., <https://www.cheese.com/gouda/>)
+- Whether or not the cheese has a picture (e.g., [gouda](https://www.cheese.com/gouda/) has a picture, but [bianco](https://www.cheese.com/bianco/) does not)
+
+To be kind to the website owners, please add a 1 second pause between page queries. (Note that you can view 100 cheeses at a time.)
+
+
+```{r eval=FALSE}
+# Load required libraries
+library(rvest)
+library(dplyr)
+
+# Define the URL
+url <- "https://www.cheese.com/"
+
+# Read the HTML content from the webpage
+webpage <- read_html(url)
+
+# Extract the cheese names and URLs
+page_num <- 1
+more_pages <- TRUE
+all_cheese_data <- list()
+while(page_num<=103) {
+  page_url <- paste0(url,"alphabetical/","?page=", page_num)
+  webpage <- tryCatch({read_html(page_url)})
+
+  cheese_nodes <- html_nodes(webpage, ".product-item")
+
+    page_data <- tryCatch({
+        tibble(
+          cheese_name = cheese_nodes %>%
+                          html_node("h3") %>% 
+                          html_text(trim = TRUE),
+
+          relative_url = cheese_nodes %>%
+                            html_node("a") %>%
+                            html_attr("href"), 
+
+          has_picture = !is.na(html_node(cheese_nodes, ".image-exists"))
+       ) %>%
+       mutate(cheese_url = paste0(url, relative_url)) %>% 
+       select(cheese_name, cheese_url, has_picture)
+    })
+
+    all_cheese_data[[page_num]] <- page_data
+
+    page_num <- page_num + 1
+
+    Sys.sleep(1)
+
+}
+
+# Create a data frame to store the results
+
+cheese_df <- bind_rows(all_cheese_data)
+write.csv(cheese_df,"cheese_df.csv")
+```
+
+Print the dimensions & first few rows of your final data frame:
+
+```{r}
+library(readr)
+cheese_df <- read_csv("cheese_df.csv")
+dim(cheese_df)
+head(cheese_df)
+```
+
+
+
+**Ex 4:** When you go to a particular cheese's page (like [gouda](https://www.cheese.com/gouda/)), you'll see more detailed information about the cheese. For **just 10** of the cheeses in the database, obtain the following detailed information: milk information, country of origin, family, type, and flavour. (Just 10 to avoid overtaxing the website. Continue adding a 1 second pause between page queries.) 
+
+```{r}
+library(purrr)
+library(tibble)
+library(stringr)
+library(dplyr)
+get_text_from_page <- function(page, css_selector) {
+  nodes <- page %>% html_elements(css_selector)
+  if (length(nodes) == 0) {
+    return("NA")
+  }else {
+    page<- page %>%
+        html_elements(css_selector) %>%
+        html_text()
+    return(page[1])
+  }
+}
+
+get_cheese <- function(cheese_url) {
+  Sys.sleep(1)
+  cheese_page <- read_html(cheese_url)
+  cheese_name <- cheese_page %>%
+                 html_node("h1") %>% 
+                 html_text(trim = TRUE)
+  milk_information <- get_text_from_page(cheese_page, ".summary_milk")
+  country_of_origin <- get_text_from_page(cheese_page, ".summary_country")
+  family <- get_text_from_page(cheese_page, ".summary_family")
+  type <- get_text_from_page(cheese_page, ".summary_moisture_and_type")
+  flavour <- get_text_from_page(cheese_page, ".summary_taste")
+  tibble(
+    cheese_name = extract_text(cheese_name),
+    milk_information = extract_text(milk_information),
+    country_of_origin = extract_text(country_of_origin),
+    family = extract_text(family),
+    type = extract_text(type),
+    flavour = extract_text(flavour)
+  )
+}
+
+extract_text <- function(string){
+  text <- string%>%
+    str_extract(":[^,;\\(]+")%>%
+    str_replace("^: ", "")%>%
+    str_replace("\n\t\t\t\t\t\t","")
+  return(text)
+}
+
+cheese_subset_df <- head(cheese_df, 10)
+
+cheeses <- map_dfr(
+  cheese_subset_df$cheese_url,
+  ~ get_cheese(.x)
+)
+df_cheese_detail <- bind_rows(cheeses)
+```
+
+
+
+Print the dimensions & first few rows of your final data frame:
+
+```{r}
+dim(df_cheese_detail)
+head(df_cheese_detail)
+```
+
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. Text book
+2. Course website
+3. String cheatsheet
+
+**Reflection:**
+
+I used text book to checked the functions,especially for html_attr(). I refered to the expamles in course website for the function in Ex.4. I also forgot some subseting skills so I also checked the previous examples and string cheatsheet.

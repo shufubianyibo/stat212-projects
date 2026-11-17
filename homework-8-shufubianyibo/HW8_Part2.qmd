@@ -1,0 +1,282 @@
+---
+title: "Databases"
+subtitle: "HW8 Part 2"
+author: "YOUR NAME"
+format: 
+  html:
+    self-contained: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a Pass for this challenge.
+
+**Requirements for high passing:**
+
+Exercise 1
+
+- Correct SQL to get total number of badges
+
+Exercise 2
+
+- Correct SQL to get total number of badges per name
+- Correct SQL to ordered correctly
+
+Exercise 3
+
+- Correct SQL to get display name and date for a chosen type of badge
+
+Exercise 4
+
+- Correct SQL to get display name or id of users who have received the most badges
+
+Exercise 5
+
+- Correct SQL to get display name, user id, reputation, and creationdate, ordered by id
+
+Exercise 6
+
+- Correct SQL to get user id, total number of posts, total upvotes, ordered by id
+
+Exercise 7
+
+- Correct SQL to get user id, total number of comments, total upvotes on comments, ordered by id
+
+Exercise 8
+
+- An appropriate visual of comments and posts.
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.) Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file. 
+
+
+## Exercises
+
+**Goal:** Analyze Stack Overflow [badges](https://stackoverflow.com/help/badges) and [posts](https://meta.stackexchange.com/questions/2677/database-schema-documentation-for-the-public-data-dump-and-sede) data using SQL queries. 
+
+Start at <https://data.stackexchange.com/stackoverflow/query/new>. 
+
+For each exercise, **record the query you used** in the qmd file; you run the query on <https://data.stackexchange.com/stackoverflow/query/new> to ensure you get the desired result. 
+
+**Exercise:** Count the number of total badges that have been given out. Hint: count the number of rows in the relevant table.
+
+> ANSWER: 53771436
+
+```{sql eval=FALSE}
+SELECT COUNT(*)
+FROM Badges
+```
+
+
+**Exercise:** Find how many times each badge has been awarded, sorted from most awarded to least awarded.
+
+> ANSWER:
+
+```{r}
+ex2<-read.csv("SQL_data/ex2.csv")
+head(ex2)
+```
+
+
+```{sql eval=FALSE}
+SELECT Name, COUNT(Name) earnedTimes
+FROM Badges
+GROUP BY Name
+ORDER BY earnedTimes Desc
+```
+
+
+**Exercise:** Find a badge that looks interesting to you. Find all the user **DisplayNames** that have received the badge, along with the date at which they received it.
+
+> ANSWER:
+
+```{r}
+ex3<-read.csv("SQL_data/ex3.csv")
+head(ex3)
+```
+
+
+```{sql eval=FALSE}
+SELECT Badges.Name, Badges.Date, Users.DisplayName
+FROM Badges 
+LEFT JOIN Users ON Badges.UserId = Users.Id
+WHERE Name = 'Teacher' AND Users.DisplayName IS NOT NULL
+```
+
+
+**Exercise:** Show the users who have received the most badges, along with how many they have received.
+
+> ANSWER:
+
+```{r}
+ex4<-read.csv("SQL_data/ex4.csv")
+head(ex4)
+```
+
+```{sql eval=FALSE}
+SELECT UserId, COUNT(UserId) badgesEarned
+FROM Badges 
+GROUP BY UserId
+ORDER BY badgesEarned Desc
+```
+
+
+The next few activities analyze user activity. These activities mimic the common workflow of creating datasets in SQL that you analyze in `R`.
+
+
+**Exercise:** Export a CSV file containing information about each user: `DisplayName, Id, Reputation, and CreationDate`. Because any queries that return more than 50,000 results return a random subset of 50,000 results, include a sort on the user ID variable to ensure that the first 50,000 users are retrieved. Name your file `users.csv`.
+
+> ANSWER:
+
+```{r}
+users_data <- read.csv("SQL_data/users.csv")
+head(users_data)
+```
+
+```{sql eval=FALSE}
+SELECT TOP(50000)
+DisplayName, Id, Reputation, CreationDate
+FROM Users
+WHERE Id > -2
+ORDER BY Id
+```
+
+
+**Exercise:** Make a table that has each user's total number of badges, and export this file as a CSV named `badges.csv`. Continue to include a sort on the user ID variable so that this data has information on the same first 50,000 users. *Hint: Start with the badges table, join information from users, and perform some grouped summaries.*
+
+> ANSWER:
+
+```{r}
+badges_data <- read.csv("SQL_data/badges.csv")
+head(badges_data)
+```
+
+```{sql eval=FALSE}
+SELECT Badges.UserId, COUNT(Badges.UserId)badgesEarned
+FROM Badges 
+JOIN Users ON Badges.UserId = Users.Id
+GROUP BY Badges.UserId
+ORDER BY Badges.UserId
+```
+
+**Exercise:** Make a table that has each user's total number of posts and total number of upvotes the user has cast, and export this file as a CSV named `posts.csv`. Continue to include a sort on the user ID variable so that this data has information on the same first 50,000 users. *Hint: Start with the posts table, join information from users, and perform some grouped summaries.*
+
+> ANSWER:
+
+```{r}
+posts_data <- read.csv("SQL_data/posts.csv")
+head(posts_data)
+```
+
+
+```{sql eval=FALSE}
+SELECT
+    p.OwnerUserId,                     
+    COUNT(p.OwnerUserId) AS NumberOfPosts, 
+    MIN(u.UpVotes) AS TotalUpVotes
+FROM Posts AS p                         
+JOIN Users AS u ON p.OwnerUserId = u.Id            
+GROUP BY p.OwnerUserId                      
+ORDER BY p.OwnerUserId
+```
+
+
+**Exercise:** Calculate the number of comments made per user, and the total number of upvotes across all comments made per user (this is the sum of the `Score` variable under the Comments table) and export this as a CSV file named `comments.csv`. Continue to include a sort on the user ID variable so that this data has information on the same first 50,000 users. 
+
+> ANSWER:
+
+```{r}
+comments_data <- read.csv("SQL_data/comments.csv")
+head(comments_data)
+```
+
+
+```{sql eval=FALSE}
+SELECT
+    c.UserId,                     
+    COUNT(c.UserId) AS NumberOfComments, 
+    SUM(c.Score) AS AllUpVotesComments
+FROM Comments AS c                       
+JOIN Users AS u ON c.UserId = u.Id           
+GROUP BY c.UserId                      
+ORDER BY c.UserId
+```
+
+
+**Exercise:** Import these four datasets into `R`. Visualize the relationship between the four datasets. Include at least two visualizations.
+
+Your goal should be to weave together a compelling story about how users on Stackoverflow earn badges through their activity on the site.
+
+> ANSWER: The higher reputation almost equals to more badges earned, while although number of post also related to badges earned, there are lots of exceptions, which might caused by the user only creates lost of low quality posts, which have low amount of vote up. Suprisingly, number of comments gives a very large affect to badges earned.
+
+```{r}
+library(dplyr)
+library(readr)
+library(tidyr)   
+library(ggplot2)
+combined_user_activity <- users_data %>%
+  rename(UserId = Id) %>%
+  select(UserId, DisplayName, Reputation, CreationDate) %>% 
+  left_join(badges_data %>% select(UserId, badgesEarned), by = "UserId") %>%
+  left_join(posts_data %>% select(OwnerUserId, NumberOfPosts, TotalUpVotes), by = c("UserId" = "OwnerUserId")) %>%
+  left_join(comments_data %>% select(UserId, NumberOfComments, AllUpVotesComments), by = "UserId") %>%
+  mutate(
+    badgesEarned = replace_na(badgesEarned, 0),
+    NumberOfPosts = replace_na(NumberOfPosts, 0),
+    TotalUpVotes = replace_na(TotalUpVotes, 0), 
+    NumberOfComments = replace_na(NumberOfComments, 0),
+    AllUpVotes = replace_na(AllUpVotesComments, 0)
+  )
+
+ggplot(combined_user_activity, aes(x = Reputation, y = badgesEarned)) +
+  geom_point() + 
+  labs(
+    title = "User Reputation vs. Badges Earned",
+    subtitle = "Based on the first 50,000 Stack Overflow users by ID",
+    x = "User Reputation",
+    y = "Number of Badges Earned",
+    caption = "Data source: Stack Exchange data dump"
+  ) +
+  theme_minimal(base_size = 12) + 
+  theme(plot.title = element_text(face = "bold"))
+
+ggplot(combined_user_activity, aes(x = NumberOfPosts, y = badgesEarned, color = TotalUpVotes)) +
+  geom_point() + 
+  labs(
+    title = "Number of Posts vs. Badges Earned",
+    subtitle = "Based on the first 50,000 Stack Overflow users by ID",
+    x = "Number of Posts Created",
+    y = "Number of Badges Earned",
+    caption = "Data source: Stack Exchange data dump"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+
+ggplot(combined_user_activity, aes(x = NumberOfComments, y = badgesEarned, color = AllUpVotesComments)) +
+  geom_point() + 
+  labs(
+    title = "Number of Comments vs. Badges Earned",
+    subtitle = "Based on the first 50,000 Stack Overflow users by ID",
+    x = "Number of Comments Created",
+    y = "Number of Badges Earned",
+    caption = "Data source: Stack Exchange data dump"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+
+
+```
+
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. https://www.w3schools.com/sql/
+2. course website
+3. https://meta.stackexchange.com/questions/2677/database-schema-documentation-for-the-public-data-dump-and-sede
+
+**Reflection:**
+Since I'm still not sure about some method in SQL, so I both looked at the course website and searched online. I found the website https://www.w3schools.com/sql/ is very convenient to check the SQL methods with simple examples. The stackexchange website is useful for checking the meaning of variabls.
+

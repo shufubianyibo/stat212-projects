@@ -1,0 +1,8 @@
+---
+title: "Milestone3"
+format: html
+---
+
+For this milestone, we got our datasets from their sources and made some modifications to make them tidier, but not totally clean. We have set our overall goal: discover the NYT bestseller list and book reviews, find the most contributed factors, and their relations with reviews. This study can offer some directions for new writers by offering the most important factors that affect book sales, and also help readers avoid being misled by the sales or reviews of books. We will focus on the basic effects of authors, series, genre, etc. to the sales and rankings. We will also focus on the sales and reviews over time to discuss the effectiveness of sales and reviews, in other words, whether the book's rating and sales are only affected by its era and current politics. 
+
+We haven't combine our data from 2 different sources together yet as we faced some difficulties with collecting the data from the APIs, so we do not yet have any general outcomes, but we found a helpful variable ISBN to combine the datasets now. There are some difficulties we expected, like we must subset our huge datasets, and what should be the scale and standard to subsetting them. We were able to pull all the weekly bestseller lists for 2024 to start, which ensures we will have enough data to work with. All of our data are from legal website's APIs, so they are ethical.

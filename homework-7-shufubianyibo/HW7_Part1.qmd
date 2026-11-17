@@ -1,0 +1,205 @@
+---
+title: "Programming + JSON"
+subtitle: "HW 7 Part 1"
+author: "YOUR NAME"
+format: 
+  html:
+    self-contained: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a High Pass for this challenge.
+
+**Requirements for high passing**
+
+Ex 1
+
+- Stated the access date to <https://github.com/artsmia/collection>
+- Included a .gitignore file with `data/raw/` listed
+
+Ex 2
+
+- Wrote a function that included `try()`
+- Wrote a function that included `nulltoNA()`
+- Used `map()` to iterate over file paths with `list_rbind()`
+- Ended up with a data frame of the full data from Mia
+
+Ex 3
+
+- Has mia_collection.csv in `data/clean/`
+
+Ex 4
+
+- `continent_clean` has only the values indicated and no missing values
+- assumptions used in the cleaning process are clearly stated
+
+Ex 5
+
+- Created an appropriate graphic for department v. continent_clean
+- Included axis labels and a title for the visualization to provide necessary data context.
+
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.)  Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+# Exercises
+
+**Goal:** Create a visualization based on data from Mia collection
+
+- Practice working with JSON files
+- Practice working with multiple files
+- Practice cleaning string data
+
+## Ex 1
+
+Download a zip file from the [Mia collection](https://github.com/artsmia/collection) repository to your local machine. Unzip the folder. The `objects` folder contains a collection of JSON files with information about the Minneapolis Institute of Art's collection. Save this `objects` folder in a `data/raw/` folder in your Github directory (make sure that you have a `.gitignore` file that excludes that `data/raw/` folder).
+
+> Access Date: 
+
+If you have trouble downloading this file, start by downloading a subset [here](https://drive.google.com/open?id=1ahNg6mgM8XssF2LS68Ywg1yCbhzfmdpc&usp=drive_fs). For submission, you should have accessed the full dataset from Github but this subset will help you start working on the task while you wait for the full download.
+
+## Ex 2
+
+Write code that reads in all the JSON files in the `objects` folder and returns a tibble with the following columns: 
+'id','accession_number','title','artist','classification','continent','country','dated','life_date','department','culture','nationality','room','style','medium','dimension','description','object_name'
+
+```{r}
+library(dplyr)
+library(purrr)
+library(jsonlite)
+library(ggplot2)
+```
+
+
+```{r eval = FALSE}
+path <- "../homework-7-shufubianyibo/data/raw/objects"
+files <- dir(path, pattern = "*.json",recursive = TRUE)
+file_paths <- file.path(path,files)[1:5000]
+# Write a function called read_json_file that reads in one JSON File and flattens it to a data frame
+# Note: Use try() to silently handle errors in reading in the JSON file; if error occurs, return NULL
+# If any values are missing of the columns of interest, replace the NULL with NA
+# Return a data frame with 1 row and only the following columns: 'id','accession_number','title','artist','classification','continent','country','dated','life_date','department','culture','nationality','room','style','medium','dimension','description','object_name'
+
+nullToNA <- function(x){
+  if(is.null(x)){
+    x <- NA
+  }
+  x
+}
+
+read_json_file <- function(file_path){
+  res <- try(fromJSON(file_path, flatten = TRUE), silent = TRUE)
+  target_columns <- c('id', 'accession_number', 'title', 'artist', 'classification',
+                      'continent', 'country', 'dated', 'life_date', 'department',
+                      'culture', 'nationality', 'room', 'style', 'medium',
+                      'dimension', 'description', 'object_name')
+  if(inherits(res, "try-error")){
+    return(NULL)
+  }
+  output <- setNames(vector("list", length(target_columns)), target_columns)
+  for (col in target_columns) {
+    if (col %in% names(res)) {
+      value <- res[[col]]
+      if (is.null(value)) {
+        output[[col]] <- NA
+      } else {
+        output[[col]] <- value
+      }
+    } else {
+      output[[col]] <- NA 
+    }
+  }
+  return(as_tibble(output))
+}
+
+
+# Use map() to read in all file_paths and list_rbind() to combine them into a tibble/data frame
+
+mia_collection <- 
+  list_rbind(map(file_paths,read_json_file))
+  
+
+
+  
+  
+dim(mia_collection)
+head(mia_collection)
+```
+
+
+## Ex 3
+
+Save `mia_collection` as a `mia_collection.csv` file to a `data/clean/` folder in your local Github repository. 
+
+```{r, eval=FALSE}
+library(readr)
+write_csv(mia_collection, "data/clean/mia_collection.csv")
+```
+
+
+## Ex 4
+
+Explore the `continent` variable. Create a "clean" version of the variable called `continent_clean` such that each object has 1 value from the following: "Europe", "Africa", "North America", "Asia", "South America", "Antarctica", "Oceania", "Unknown Continent". As you clean the variable, state your assumptions explicitly so that someone could replicate your work based on your words. 
+
+> Assumptions: First set a vector including: "Europe", "Africa", "North America", "Asia", "South America", "Antarctica", "Oceania". Set a function to check whether the input value equals to any value in the vector, if not set the value to "Unknown Continent", else do nothing. At last, use map to loop over every value in the column with the function.
+> 
+
+```{r}
+mia_collection <- read.csv("data/clean/mia_collection.csv")
+continent_names<- c("Europe", "Africa", "North America", "Asia", "South America", "Antarctica", "Oceania")
+
+check_continent_name <- function(value) {
+  if (!value %in% continent_names || is.na(value)) {
+    value <- "Unknown Continent"
+  }
+  return(value)
+}
+
+
+mia_collection <- mia_collection %>%
+  mutate(continent_clean = map_chr(as.character(continent), check_continent_name))
+
+
+
+
+
+
+
+
+# Don't erase the code below; this will show your final work
+mia_collection %>% 
+  count(continent_clean)
+
+unique(mia_collection$continent_clean)
+```
+
+
+## Ex 5
+
+Make a visualization that looks at the relationship between `department` and `continent_clean`.
+
+```{r}
+ggplot(mia_collection, aes(x = department, fill = continent_clean)) +
+    geom_bar(position = "stack") + 
+    labs(
+      title = "Distribution of Art Objects by Continent within Mia Departments",
+      x = "Department",
+      y = "Number of Objects",
+      fill = "Continent (Cleaned)" 
+    )+
+  theme(axis.text.x = element_text(angle = 65, hjust = 1, vjust = 1))
+```
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. Course website
+2. R documentations
+3.
+
+**Reflection:**
+
+There isn't many new methods or packages in this homework, so most situation that I need to check something I can quickly check the course website. For example, the subseting things are still kind of confusing sometimes but I can solve it by see some previous examples. For some methods that I forgot how to use them, I directly search them in r studio for documentation.

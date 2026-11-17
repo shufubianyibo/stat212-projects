@@ -1,0 +1,48 @@
+---
+title: "Milestone4_Sidney"
+format: html
+---
+
+```{r message = FALSE}
+library(tidyverse)
+library(MetBrewer)
+bestseller <- read_csv("../data/clean/full_bestseller.csv")
+```
+
+```{r}
+clean <- bestseller %>% 
+  group_by(title) %>%
+  summarize(
+    best_ranking = min(rank),
+    max_weeks_on_list = max(weeks_on_list),
+    publisher = first(publisher),
+    .groups = "drop"
+  )
+  
+```
+
+```{r}
+clean %>% 
+  group_by(publisher) %>%
+  summarize(book_count = n()) %>%
+  arrange(desc(book_count)) %>%
+  top_n(10, book_count) %>%
+  left_join(clean, by = "publisher") %>%
+  mutate(pub = fct_reorder(publisher, book_count)) %>% 
+  ggplot(aes(x = pub, fill = book_count)) +
+  geom_bar() +
+  scale_fill_met_c("VanGogh1") +
+  labs(title = "Top Publishing Companies on the 2021-2024 NYT Bestseller Lists", x = "Publisher", y = "Number of Unique Books on Bestseller List", subtitle = "Of the 718 Unique Titles") +
+  theme(legend.position = "none") +
+  coord_flip()
+```
+
+
+
+
+
+
+
+
+
+

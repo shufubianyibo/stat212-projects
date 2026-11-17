@@ -1,0 +1,74 @@
+---
+title: "TaskDueBy422_Han"
+format: html
+---
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(tidytext)
+library(wordcloud)
+```
+
+```{r}
+review_data <- read_csv("../../data/clean/primarycleaned_reviews_data.csv")
+```
+
+```{r}
+data("stop_words")
+other_stop_words <- tibble(
+  word = c("book", "page", "pages", "read","books","story")
+)
+all_stop_words <- bind_rows(stop_words, other_stop_words) %>%
+  distinct()
+```
+
+
+```{r}
+review_data <- review_data %>%
+  mutate(stars= as.character(round(as.numeric(stars))))%>%
+  na.omit(stars)
+unique_ratings <- review_data %>%
+  distinct(stars) %>%
+  pull(stars) %>%
+  sort()
+```
+
+```{r}
+for (current_rating in unique_ratings) {
+
+  cat("Processing rating:", current_rating, "\n") 
+  rating_specific_data <- review_data %>%
+    filter(stars == current_rating)
+
+  rating_words <- rating_specific_data %>%
+    unnest_tokens(word, review_text) %>%
+    anti_join(all_stop_words, by = "word") %>%
+    filter(!str_detect(word, "^\\d+$")) %>%
+    count(word, sort = TRUE)
+
+
+  cat("  Generating word cloud for rating", current_rating, "...\n")
+  set.seed(123) 
+
+  num_colors <- min(8, nrow(rating_words)) 
+  if(num_colors < 3) num_colors <- 3 
+  word_colors <- brewer.pal(num_colors, "Dark2")
+
+  wordcloud(
+    words = rating_words$word,        
+    freq = rating_words$n,            
+    min.freq = 8,
+    max.words = 150,                  
+    random.order = TRUE,             
+    rot.per = 0.30,                   
+    colors = word_colors,
+    scale = c(3, 0.2)
+  )
+
+  title(main = paste("Word Cloud for", current_rating, "Star Reviews"))
+
+} 
+```
+
+

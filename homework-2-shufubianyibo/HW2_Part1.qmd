@@ -1,0 +1,165 @@
+---
+title: "Advanced visualization with ggplot2"
+subtitle: "HW2 Part 1"
+author: "Han Sun"
+format: 
+  html:
+    embed-resources: true
+---
+
+# Instructions
+
+**Task:** Using `ggplot2` and other tools in R, recreate the original New York Times graphic to the greatest extent possible. Try to get as close as possible to the figure below:
+
+![](https://bcheggeseth.github.io/212_spring_2025/images/hw1_goal.png){width=600, fig-align="center"}
+
+You will need to use reference pages and documentation to discover necessary tools. For example, you may want to Google search "ggplot multiple plots". When looking through results, check publication dates and use newer references. Some helpful resources could include R documentation, Stack Overflow, and [R cheatsheets](https://rstudio.github.io/cheatsheets/).
+
+**Requirements for high passing:**
+
+- Temperature graph
+    - Bands for the record, normal, and actual highs and lows are shown in the correct colors.
+    - Downward triangles point to the record high temperatures above the red band.
+    - Text displays the record high temperatures above the triangles.
+    - X-axis label: 3-letter month abbreviations appear in the middle of each month.
+    - Y-axis label: Tick marks at 0, 40, 80, and 120 only.
+    - Vertical lines separate the months.
+    - Title of "Temperature" is included.
+- Precipitation
+    - Tan area and blue line reflecting the monthly cumulative precipitation is included.
+    - Text (number) for cumulative precipitation for each month is included at the end of each month just above the blue line.
+    - Downward triangles point to the record precipitation days.
+    - Vertical lines separate the months.
+    - Title of "Precipitation" is included.
+- Overall
+    - Both the temperature and precipitation graphs are in one figure.
+    - The temperature plot takes up more vertical space than the precipitation plot.
+    - The title "SFO weather in 2011" is present.
+- Resource reflection
+    - At least 1 resource is listed
+    - At least 3 sentences about resources and their helpfulness in the task
+
+**Bonus:** If you'd like further practice, recreate the legend in the temperature graph that shows how the colored lines relate to record, normal, and actual highs.
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file in your Github repo.
+
+
+
+# Setup
+
+```{r}
+# Code for loading packages and reading in data
+library(tidyverse)
+weather <- read_csv("https://mac-stat.github.io/data/sfo_weather.csv")
+
+```
+
+
+
+# Visualization
+
+```{r}
+# Code for recreating the visualization
+# Use as many code chunks as you need to organize your work well
+weather_m <- weather %>%
+  filter(Day == 1, Month != 1) 
+
+mid_month_days <- weather %>%
+  group_by(Month) %>%
+  summarize(mid_dateInYear = mean(dateInYear))
+
+record_highs <- weather %>%
+  filter(High == RecordHigh)
+  
+temp_plot <-ggplot() +
+    geom_rect(data = weather, aes(x = dateInYear, xmin = dateInYear-0.5, xmax = dateInYear+0.5, ymin = RecordLow, ymax = RecordHigh),color = '#ECEBE3') +
+    geom_rect(data = weather, aes(x = dateInYear, xmin = dateInYear-0.5, xmax = dateInYear+0.5, ymin = NormalLow, ymax = NormalHigh), color = '#C8B8BA') +
+    geom_rect(data = weather, aes(x = dateInYear, xmin = dateInYear-0.5, xmax = dateInYear+0.5, ymin = Low, ymax = High), color = '#A90248') +
+  geom_point(data = record_highs, aes(x = dateInYear, y = RecordHigh), shape = 25, fill = "black", size = 3) +
+  geom_text(data = record_highs, aes(x = dateInYear, y = RecordHigh,
+                                     label = paste("Record High:", RecordHigh)),
+            vjust = -0.8, size = 2.5, fontface = "bold") +
+    geom_vline(data = weather_m, aes(xintercept = dateInYear), linetype="dotted")+
+    scale_y_continuous(limits = c(0, 120), breaks = seq(0, 120, by = 40)) +
+    scale_x_continuous(breaks = mid_month_days$mid_dateInYear,  
+                      labels = month.abb[mid_month_days$Month])+
+    labs(title = "Temperature",
+        x = "Month",  
+        y = "Temperature")+
+    theme_classic()+
+    theme(panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank())
+temp_plot
+```
+```{r}
+weather_monthly <- weather %>%
+  group_by(Month) %>%
+  arrange(dateInYear) %>%
+  mutate(cumPRCP = cumsum(Precip)) %>%
+  ungroup()
+max_precip <- max(weather$Precip, na.rm = TRUE)
+monthly_totals <- weather_monthly %>%
+  group_by(Month) %>%
+  summarize(
+    last_day = max(dateInYear),
+    month_total = max(cumPRCP, na.rm = TRUE))
+month_boundaries <- weather_monthly %>%
+  group_by(Month) %>%
+  summarize(boundary_day = min(dateInYear))
+highest <- weather_monthly%>%
+  filter(Precip == RecordPrecip, Precip !=0)
+
+precip_plot <-ggplot(weather_monthly, aes(x = dateInYear, y = cumPRCP)) +
+  geom_area(fill = "tan", alpha = 0.5) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(
+    data = highest,
+    shape = 25,            
+    fill  = "black",
+    color = "black",
+    size  = 3
+  ) +
+  geom_vline(
+    data = month_boundaries,
+    aes(xintercept = boundary_day),
+    linetype = "dashed",
+    color = "gray") +
+  geom_text(
+    data = monthly_totals,
+    aes(x = last_day, y = month_total, label = round(month_total, 2)),
+    vjust = -0.5,   # slight vertical offset
+    color = "blue") +
+    scale_y_continuous(limits = c(0, 8), breaks = seq(0, 8, by = 4))
+  labs(title = "Precipitation") +
+  theme_minimal()
+
+
+
+precip_plot
+```
+
+
+```{r}
+library(patchwork)
+final_plot <- temp_plot / precip_plot + plot_layout(heights = c(3, 2))+
+    plot_annotation(title = 'SFO Weather in 2011')
+final_plot
+```
+
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+
+**Resources:**
+
+1.https://ggplot2.tidyverse.org/reference/geom_abline.html
+2.https://hashcx.github.io/mac-comp112website-f24/activities/08-wrangling-verbs.html
+3. Gemini
+
+**Reflection:**
+
+I used the website of ggplot2 to find the methods of plotting, the activities website of STAT112 to review some data wrangling skills and methods of labels, and I asked gemini how to put two plots in one image, which I failed to find on ggplot2 website. The 112 website is more helpful, because the examples are clearer than the examples of the ggplot2 website. I feel that examples with real data is more helpful for me to understand.
+
+

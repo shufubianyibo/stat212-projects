@@ -1,0 +1,230 @@
+---
+title: "Advanced map visualizations"
+subtitle: "HW3 Part 1"
+author: "Han Sun"
+format: 
+  html:
+    embed-resources: true
+---
+
+# Instructions
+
+Complete all parts of the Exercises section below to earn a High Pass for this part of the homework.
+
+**Requirements for high passing:**
+
+- 1. Explore ACS and enter an addition variable to code
+- 2. Download and Read in roads data
+- 3. Ensure both census2020 and crashes are same CRS
+- 5. Crop roads (at least to Ramsey and Hennepin counties)
+- 6. Join crashes and census to calculate number of crashes per tract
+- 7. Join census2020 and crashes per tract
+- 8. Choropleth map of number of crashes per tract + use of scale_fill_gradientn()
+- 9. Choropleth map coloring census tracts by a census variable + crash locations as points + scale_fill_gradientn()
+- 9. Sentence Interpretation in Data Context
+- 10. 2 non-map visuals of number of crashes vs census variables
+- 10. Sentence Interpretation in Data Context
+
+**Submission:** Click the "Render" button in RStudio to knit a self-contained HTML with all images embedded. Commit and push changes to this file as well as the generated HTML. Push your changes to GitHub by midnight on the deadline. (GitHub classroom automatically creates a pull request for receiving feedback.) Note that your submission is incomplete without a **readable, rendered HTML** in addition to the qmd file.
+
+# Exercises
+
+The following exercises will use census tract `tidycensus` data for Ramsey and Hennepin county and crash data (2019-2022) from the [pedestrian/bike crash database](https://information.stpaul.gov/datasets/stpaul::pedestrian-and-bike-crash-dataset-/about) for St. Paul within Ramsey county in the Twin Cities.
+
+The following code loads census data for Ramsey counties and reads in the pedestrian/bike crash data.
+
+**Exercise 1:** Adjust this code to load in one additional census variable that you think might serve as useful context for crash data. To do this:
+
+- Look at the documentation for `get_acs()` by entering `?tidycensus::get_acs` in the Console.
+- Look at the [Seaching for variables documentation](https://walker-data.com/tidycensus/articles/basic-usage.html#searching-for-variables) from the `tidycensus` package. Use the function in this documentation to find one variable to add to the `variables` argument in the `get_acs()` function below.
+- Rename the variable that you picked to have a more descriptive name within `rename()`.
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(sf)
+v20<- load_variables( 2020, "acs5", cache = TRUE)
+v20<-v20%>%
+  filter(grepl("vehicles", concept, ignore.case = TRUE))
+v20
+```
+
+
+> Enter the new variable you selected (e.g., B01003_001) here: B08015_001
+> 
+> Enter the new name for that variable (e.g., population) here: commuteVehicles
+
+```{r reading, message=FALSE, warning=FALSE, results="hide"}
+census2020 <- tidycensus::get_acs(
+    year = 2020,
+    state = "MN",
+    geography = "tract",
+    variables = c("B01003_001", "B19013_001", "B23006_023", "B25058_001", "B25107_001", "B25003_001", "B25003_002", "B25003_003", "B25077_001", "B08015_001"),
+    output = "wide",
+    geometry = TRUE
+) %>%
+    filter(word(NAME, 4) %in% c("Ramsey")) %>%
+    mutate(
+        tract = word(NAME, 3),
+        tract = str_remove(tract, ","),
+        county = word(NAME, 4)
+    ) %>%
+    select(-NAME) %>%
+    rename(
+        "population" = "B01003_001E",
+        "medianIncome" = "B19013_001E",
+        "bachelors" = "B23006_023E",
+        "medContractRent" = "B25058_001E",
+        "tenureTotal" = "B25003_001E",
+        "tenureOwned" = "B25003_002E",
+        "tenureRented" = "B25003_003E",
+        "medianHomeValue"= "B25077_001E",
+        "commuteVehicles" = "B08015_001E"
+    ) %>%
+    select(-contains("_"))
+
+crashes <- read_csv("https://mac-stat.github.io/data/Crash.csv") %>%
+    filter(!is.na(Latitude), !is.na(Longitude))
+```
+
+**Exercise 2:** Visit [this site](https://catalog.data.gov/dataset/tiger-line-shapefile-2019-state-minnesota-primary-and-secondary-roads-state-based-shapefile), and download the Shapefile Zip File to a `data` folder within this folder. Unzip the file (`tl_2019_27_prisecroads.zip`).
+
+Load in the roads shapefile using `st_read()`, and transform `roads` to have the same CRS as `census2020` if necessary.
+
+```{r reading_roads}
+roads <- sf::st_read("tl_2019_27_prisecroads/tl_2019_27_prisecroads.shp")
+
+# Check CRS of roads and transform if necessary
+st_crs(census2020) == st_crs(roads)
+
+```
+
+
+
+**Exercise 3:** Transform the `crashes` data frame to a `sf` object that has point geometry using the code below.
+
+```{r crashes_to_sf}
+crashes <- st_as_sf(crashes, coords = c("Longitude", "Latitude"), crs = "NAD83")
+```
+
+**Exercise 4:** Check if the CRSs are the same for `census2020` and `crashes` using `st_crs()`. Transform to ensure they are exactly the same.
+
+```{r same_crs}
+st_crs(census2020) == st_crs(crashes)
+```
+
+**Exercise 5:** Use `st_crop()` to crop the roads and census2020 datasets to the area we are interested in (crashes in St. Paul within Ramsey County). To determine the region to crop to, you will need to use `st_bbox()` on a spatial data object that only pertains to St. Paul within Ramsey County.
+
+```{r crop_roads}
+ramsey <- census2020 %>%
+    filter(county == "Ramsey") %>% 
+    st_bbox()
+roads_sub <- st_crop(roads, st_bbox(ramsey))
+census2020_sub <- st_crop(census2020,st_bbox(ramsey))
+```
+
+**Exercise 6:** Join the crashes and census dataset together and count the number of crashes per census tract. The function `st_join` can join to spatial data sets according to whether the spatial geometries of the right table intersect with the spatial geometries of the left table. It matters which order you join the datasets in!
+
+```{r join_crashes}
+crashes_per_tract <- st_join(census2020, crashes) %>%
+    st_drop_geometry() %>% # removes geometry - makes the following calculation more efficient 
+    filter(!is.na(Accident_Datetime)) %>%
+    count(tract) 
+```
+
+**Exercise 7:** Join the census data with `crashes_per_tract` and then use a filter of `n > 0` to only keep the census tracts where crashes were recorded instead of all of Ramsey County. Again, order matters!
+
+```{r add_geometry_back}
+crashes_per_tract_geo <- census2020_sub %>% # sf object with census geometry goes first
+    left_join(crashes_per_tract, by = "tract") %>%
+    filter(n > 0)
+```
+
+**Exercise 8:** Create a map that shows the number of pedestrian/bike crashes per census tract. Write one sentence about the patterns you notices; interpret your findings in the data context.
+
+- Use `scale_fill_gradientn()` to set up a meaningful color scale for the census tract colors.
+- Include a map layer for the roads.
+
+```{r map_num_crashes}
+library(ggplot2)
+
+ggplot() +
+    geom_sf(data = crashes_per_tract_geo, aes(fill = n)) +
+    geom_sf(data = roads_sub) +
+    scale_fill_gradientn(
+        name = "Number of Crashes",
+        colors = c("green", "yellow", "orange", "red"),
+        na.value = "grey" ) +
+    labs(title = "Pedestrian and Bike Crashes per Census Tract in Ramsey County",
+         subtitle = "Crashes data (2019-2022) and 2020 Census Tracts") +
+    theme_minimal()
+```
+
+
+**Exercise 9:** Create one map that shows crash locations as points and colors census tracts by one different census variable. Write one sentence about the patterns you notice; interpret your findings in the data context.
+
+- Use `scale_fill_gradientn()` to set up a color scale for the census tract colors.
+- Include a layer for the roads.
+
+```{r mas_crashes_census_info}
+ggplot() +
+    geom_sf(data = census2020, aes(fill = medianIncome)) +
+    geom_sf(data = st_filter(crashes, census2020), color = "red", size = 0.5, alpha = 0.5) + 
+    geom_sf(data = roads_sub, color = "grey50", size = 0.5) +
+    scale_fill_gradientn(
+        name = "Median Income",
+        colors = c("blue", "green", "yellow", "orange"),
+        na.value = "grey80"
+    ) +
+    labs(title = "Median Income by Census Tract with Crash Locations in Ramsey County",
+         subtitle = "2020 Census Data and Crashes (2019-2022)") +
+    theme_minimal()
+```
+
+Pedestrian and bike crashes are somewhat more concentrated in census tracts with lower to middle range median incomes which is among 50000-100000. This might caused by the more and more expensive gas, which makes people use pedestrian and bike more frequently, that leads to more crashes.
+
+**Exercise 10:** Create two other visuals (that are not maps) showing the relationships between the number of crashes and census data. Write one sentence about the patterns you notice; interpret your findings in the data context.
+
+```{r crashes_census_info}
+ggplot(crashes_per_tract_geo, aes(x = medianIncome, y = n)) +
+    geom_point() +
+    geom_smooth(method = "lm") + 
+    labs(title = "Scatter Plot of Median Income vs. Number of Crashes per Census Tract",
+         x = "Median Income (USD)",
+         y = "Number of Crashes") +
+    theme_minimal()
+```
+
+```{r}
+crashes_per_tract_geo<- crashes_per_tract_geo%>%
+  mutate(b_percent = bachelors/population)%>%
+  mutate(income_level = case_when(
+        medianIncome < 50000 ~ "Under $50,000",
+        medianIncome >= 50000 & medianIncome <= 100000 ~ "$50,000 - $100,000",
+        medianIncome > 100000 ~ "Above $100,000"
+    ))
+ggplot(crashes_per_tract_geo, aes(x = b_percent, y = n, color = income_level)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE) +
+    labs(title = "Scatter Plot of Percentage with Bachelor's Degree and Income Level vs. Number of Crashes per Census Tract",
+         x = "Percentage of Population with Bachelor's Degree",
+         y = "Number of Crashes") +
+    theme_minimal()
+```
+The number of crashes decreases by increasing median income. However, if the community with lower income is higher educated, the crashes will decrease. This might caused by they have better safty awareness, but when they become richer, this safty awareness seems to be disappeared.
+
+
+# Resources Reflection (required)
+
+What resources did you use to help with this assignment? Please list below. Then write 3-5 sentence reflection on which resources were most helpful in finishing this task.
+
+**Resources:**
+
+1. https://walker-data.com/tidycensus/articles/basic-usage.html#searching-for-variables
+2. Class activity
+3. 112 course website
+
+**Reflection:**
+
+I reviewed the methods by the class activity, which helps me a lot. The tidycensus is also important for me to understand the data and how can I call the data. I only use 112 course website to check the geom_smooth details this time, since the methods for maps seems to have lots of differences.
+
+
