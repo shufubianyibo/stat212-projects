@@ -4,7 +4,21 @@ R and Quarto modeling coursework and a collaborative study of books, bestseller 
 
 Coursework portfolio of **Han Sun ([shufubianyibo](https://github.com/shufubianyibo))**. This repository collects source snapshots from local projects so they can be browsed directly from my personal GitHub profile.
 
-## Projects
+## Main project
+
+### [Books, bestseller lists, and reader reviews](212project_Sidney-Han/)
+
+A collaborative R/Quarto project by **Sidney Langford and Han Sun** examining book-market data and reader reviews. The workflow collects and cleans bestseller and review information, creates analysis-ready tables, and develops visual summaries of publishers, ratings, review length, and review editing status. Planning documents and milestone reports record how the analysis evolved.
+
+Han's analysis is directly accessible in [`Milestone4_HanSun.qmd`](212project_Sidney-Han/results/Milestone4_HanSun.qmd), which explores review length and star ratings and compares edited and unedited reviews. Other useful starting points are the [cleaning code](212project_Sidney-Han/code/clean/), [project proposal](212project_Sidney-Han/planning/milestone1.qmd), and [combined results](212project_Sidney-Han/results/).
+
+The published artifacts emphasize data preparation and exploratory analysis. The original research questions should be read as questions investigated by the team, rather than evidence that reviews cause sales or bestseller status.
+
+## Supporting coursework
+
+The homework directories contain independent R/Quarto analyses and associated data. They complement the main project with smaller exercises; browse their source notebooks through the full index below.
+
+## All projects
 
 | Project | Source files |
 | --- | ---: |
